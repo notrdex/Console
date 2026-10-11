@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs npm bash ca-certificates curl git python3 python3-pip \
-    qemu-system-x86 qemu-utils lxd-client docker.io util-linux procps \
+    qemu-system-x86 qemu-utils util-linux procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
