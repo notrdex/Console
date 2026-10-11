@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ubuntu Web Terminal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<style>
+:root{color-scheme:dark}body{margin:0;background:#0b1020;color:#e8edf7;font:15px system-ui,sans-serif}
+main{max-width:1050px;margin:28px auto;padding:0 16px}.panel{background:#111a2e;border:1px solid #293650;border-radius:14px;padding:20px}
+h1{font-size:24px;margin:0 0 8px}.muted{color:#aab7ce}.hidden{display:none!important}
+input,button{box-sizing:border-box;border-radius:8px;border:1px solid #3b4b68;padding:12px;background:#0b1020;color:#fff;width:100%;margin:7px 0}
+button{background:#315bd6;border:0;font-weight:700;cursor:pointer}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{width:auto}
+#terminal{height:55vh;min-height:320px;background:#050810;padding:10px;border-radius:8px;margin-top:12px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere}.warning{color:#ffd27a}
+</style>
+</head>
+<body><main>
+<section id="login" class="panel hidden">
+<h1>🔐 Ubuntu Web Terminal</h1><p class="muted">Sign in to open your private terminal.</p>
+<form method="post" action="/login">
+<label>Username<input name="username" autocomplete="username" required maxlength="100"></label>
+<label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
+<button type="submit">Sign in</button></form>
+</section>
+<section id="app" class="panel hidden">
+<div class="row" style="align-items:center;justify-content:space-between"><div><h1>🐧 Ubuntu Web Terminal</h1><p class="muted">Commands run inside this Render service container, not on your phone or a separate VM.</p></div>
+<form method="post" action="/logout"><button type="submit">Log out</button></form></div>
+<div class="row"><button id="check">Check QEMU / LXD / Docker capability</button></div>
+<pre id="caps" class="muted"></pre><p class="warning">Safety note: this prototype is unprivileged. Do not expose it publicly without a strong password and HTTPS. Do not enter secrets into terminal commands.</p>
+<div id="terminal"></div>
+</section>
+</main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script>
+(async()=>{
+ const me=await fetch('/api/me').then(r=>r.json()).catch(()=>({authenticated:false}));
+ document.getElementById(me.authenticated?'app':'login').classList.remove('hidden');
+ if(!me.authenticated)return;
+ const term=new Terminal({cursorBlink:true,convertEol:true,scrollback:2000,theme:{background:'#050810'}});
+ term.open(document.getElementById('terminal'));term.writeln('Connected when session is valid. Type commands below.');
+ const socket=io({transports:['websocket','polling']});
+ socket.on('connect',()=>socket.emit('resize',{cols:term.cols,rows:term.rows}));
+ socket.on('output',d=>term.write(d));socket.on('terminal-error',m=>term.writeln('\r\n'+m));
+ term.onData(d=>socket.emit('input',d));
+ window.addEventListener('resize',()=>socket.emit('resize',{cols:term.cols,rows:term.rows}));
+ document.getElementById('check').onclick=async()=>{
+  const el=document.getElementById('caps');el.textContent='Checking…';
+  try{const r=await fetch('/api/capabilities');el.textContent=JSON.stringify(await r.json(),null,2)}
+  catch(e){el.textContent='Capability check failed.'}
+ };
+})();
+</script>
+</body></html>
